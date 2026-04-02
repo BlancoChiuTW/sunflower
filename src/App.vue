@@ -11,7 +11,7 @@ const gameStore = useGameStore();
 
 const backgroundUrl = computed(() => {
   if (!gameStore.currentBackground) return '';
-  return `/assets/backgrounds/${gameStore.currentBackground}.png`;
+  return `${import.meta.env.BASE_URL}assets/backgrounds/${gameStore.currentBackground}.png`;
 });
 
 const handleKeyDown = (e: KeyboardEvent) => {

@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue';
 import { useGameStore } from '@/stores/gameStore';
 
 const gameStore = useGameStore();
+const baseUrl = import.meta.env.BASE_URL;
 
 // ══════════════════════════════════════════
 //  ICON MAPPING — replaces all emoji
@@ -84,7 +85,7 @@ onMounted(() => {
 watch(() => gameStore.currentBgm, (newBgm) => {
   if (!bgmAudio.value) return;
   if (newBgm) {
-    bgmAudio.value.src = `/assets/bgm/${newBgm}.ogg`;
+    bgmAudio.value.src = `${import.meta.env.BASE_URL}assets/bgm/${newBgm}.mp3`;
     bgmAudio.value.volume = gameStore.bgmMuted ? 0 : gameStore.bgmVolume;
     bgmAudio.value.play().catch(() => {});
   } else {
@@ -504,7 +505,7 @@ const restartGame = () => { gameStore.restartBattle(); };
             <div class="mx-4 mt-3 h-24 rounded-md overflow-hidden border"
               style="border-color: var(--color-border-panel);"
               :style="{
-                backgroundImage: getPortraitId(displayEntity) ? `url(/assets/characters/char_${getPortraitId(displayEntity)}_normal.png)` : 'none',
+                backgroundImage: getPortraitId(displayEntity) ? `url(${baseUrl}assets/characters/char_${getPortraitId(displayEntity)}_normal.png)` : 'none',
                 backgroundSize: 'cover', backgroundPosition: 'center top',
                 backgroundColor: 'rgba(15,23,42,0.8)',
               }">
@@ -681,7 +682,7 @@ const restartGame = () => { gameStore.restartBattle(); };
               top: `${entity.position.y * (cellSize + CELL_GAP) + entityOffset + 1}px`,
               boxShadow: getStyle(entity).glow,
               transition: 'left 0.15s ease-out, top 0.15s ease-out',
-              backgroundImage: getPortraitId(entity) ? `url(/assets/characters/char_${getPortraitId(entity)}_normal.png)` : 'none',
+              backgroundImage: getPortraitId(entity) ? `url(${baseUrl}assets/characters/char_${getPortraitId(entity)}_normal.png)` : 'none',
               backgroundSize: 'cover', backgroundPosition: 'center',
               ...getLungeVars(entity),
             }"

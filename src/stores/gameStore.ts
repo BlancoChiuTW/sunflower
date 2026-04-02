@@ -502,6 +502,7 @@ export const useGameStore = defineStore('game', {
       }
       const entity = this.entities.find(e => e.id === id);
       if (entity && entity.type === 'PLAYER' && entity.hasActed) return;
+      this.playSfx('se_ui_select');
       this.selectedEntityId = id;
       this.selectedSkill = null;
       this.targetingTiles = [];
@@ -637,6 +638,7 @@ export const useGameStore = defineStore('game', {
       const casterId = caster.id;
       const dx = Math.sign(targetCoord.x - caster.position.x);
       const dy = Math.sign(targetCoord.y - caster.position.y);
+      this.playSfx('se_hit_bash');
       const preKillIds = this.shieldBash(target.id, { x: dx, y: dy });
       this.markActionDone(casterId);
       this.checkKillChain(casterId, preKillIds);
@@ -716,6 +718,7 @@ export const useGameStore = defineStore('game', {
           const finalDamage = (caster.attack || 6) + 2 + dawnBuff + adjBonus + ralliedBonus;
           const dx = Math.sign(targetCoord.x - caster.position.x);
           const dy = Math.sign(targetCoord.y - caster.position.y);
+          this.playSfx('se_skill_baton');
           this.triggerAttackAnim(caster.id, { x: dx, y: dy }, [target.id]);
           this.triggerSkillEffect([targetCoord], 'slash');
           target.hp -= finalDamage;
@@ -729,6 +732,7 @@ export const useGameStore = defineStore('game', {
         // Self-buff: GUARDING status (halve incoming damage, auto-push melee attackers)
         if (!caster.status) caster.status = [];
         if (!caster.status.includes('GUARDING')) caster.status.push('GUARDING');
+        this.playSfx('se_interact');
         this.triggerSkillEffect([caster.position], 'buff');
         this.lastActionMessage = `${caster.name} 進入防禦姿態！`;
         this.markActionDone(caster.id);
@@ -737,6 +741,7 @@ export const useGameStore = defineStore('game', {
         if (target && target.type === 'PLAYER') {
           const healAmount = 8 + (caster.attack || 0);
           target.hp = Math.min(target.maxHp, target.hp + healAmount);
+          this.playSfx('se_skill_heal');
           this.triggerSkillEffect([targetCoord], 'heal');
           this.showDamage(target.position.x, target.position.y, -healAmount);
           this.markActionDone(caster.id);
@@ -756,6 +761,7 @@ export const useGameStore = defineStore('game', {
         if (target && (target.type === 'ENEMY' || target.type === 'BOSS')) {
           const dx = Math.sign(targetCoord.x - caster.position.x);
           const dy = Math.sign(targetCoord.y - caster.position.y);
+          this.playSfx('se_skill_noise');
           this.triggerAttackAnim(caster.id, { x: dx, y: dy }, [target.id]);
           this.triggerSkillEffect([targetCoord], 'debuff');
           const finalDamage = Math.ceil((caster.attack || 2) * 1.5) + dawnBuff + adjBonus + ralliedBonus;
@@ -773,6 +779,7 @@ export const useGameStore = defineStore('game', {
           Math.abs(e.position.x - caster.position.x) + Math.abs(e.position.y - caster.position.y) <= aoeRange);
         const aoeTiles = enemies.map(e => ({ ...e.position }));
         aoeTiles.push({ ...caster.position });
+        this.playSfx('se_skill_noise');
         this.triggerSkillEffect(aoeTiles, 'aoe');
         enemies.forEach(target => {
           const dmg = 2 + dawnBuff;
@@ -789,6 +796,7 @@ export const useGameStore = defineStore('game', {
         this.lastActionMessage = `${caster.name} 發動恐慌廣播！影響 ${hitIds.length} 名敵人`;
         this.markActionDone(caster.id);
       } else if (this.selectedSkill.id === 'bat_swing') {
+        this.playSfx('se_skill_bat');
         const dx = Math.sign(targetCoord.x - caster.position.x);
         const dy = Math.sign(targetCoord.y - caster.position.y);
         let hitCoords: Coordinate[] = [];
@@ -818,6 +826,7 @@ export const useGameStore = defineStore('game', {
           const finalDamage = (caster.attack || 8) + 4 + dawnBuff + adjBonus + ralliedBonus;
           const dx = Math.sign(targetCoord.x - caster.position.x);
           const dy = Math.sign(targetCoord.y - caster.position.y);
+          this.playSfx('se_skill_bat');
           this.triggerAttackAnim(caster.id, { x: dx, y: dy }, [target.id]);
           this.triggerSkillEffect([targetCoord], 'heavy');
           target.hp -= finalDamage;
@@ -895,6 +904,12 @@ export const useGameStore = defineStore('game', {
     },
 
     // ===================== Movement & combat helpers =====================
+
+    playSfx(id: string) {
+      const audio = new Audio(`${import.meta.env.BASE_URL}assets/se/${id}.mp3`);
+      audio.volume = 0.5;
+      audio.play().catch(() => {});
+    },
 
     triggerShake() {
       this.isShaking = true;
@@ -979,6 +994,7 @@ export const useGameStore = defineStore('game', {
       const isOutOfBounds = newX < 0 || newX >= this.gridSize.width || newY < 0 || newY >= this.gridSize.height;
       let collisionEntity = this.getEntityAt(newX, newY);
       if (collisionEntity || isOutOfBounds) {
+        this.playSfx('se_push_collision');
         this.triggerShake();
         const collisionDamage = 2;
         target.hp -= collisionDamage;
@@ -1048,6 +1064,7 @@ export const useGameStore = defineStore('game', {
       this.isProcessingTurn = true;
       this.history = [];
       // Show enemy phase banner
+      this.playSfx('se_turn_switch');
       this.turnPhaseBanner = 'ENEMY';
       await new Promise(r => setTimeout(r, 1400));
       this.turnPhaseBanner = null;
@@ -1216,6 +1233,7 @@ export const useGameStore = defineStore('game', {
                 hasActed: false,
               } as any);
             });
+            this.playSfx('se_reinforcement');
             this.triggerShake();
             this.lastActionMessage = '警戒！敵方增援部隊已進入戰場！';
             this.pushNotification('⚠️ 敵方增援到達！', 'warning');
@@ -1333,6 +1351,7 @@ export const useGameStore = defineStore('game', {
       this.computeEnemyIntents();
 
       // --- Show player phase banner ---
+      this.playSfx('se_turn_switch');
       this.turnPhaseBanner = 'PLAYER';
       await new Promise(r => setTimeout(r, 1400));
       this.turnPhaseBanner = null;
@@ -1403,6 +1422,7 @@ export const useGameStore = defineStore('game', {
         if (npc.position.y >= exitY) {
           this.entities = this.entities.filter(e => e.id !== npc.id);
           this.evacuatedCount++;
+          this.playSfx('se_evacuate');
           this.lastActionMessage = `學生安全撤離！(${this.evacuatedCount}/${level.winCondition.escortCount})`;
           this.checkWinLoseCondition();
           if (this.gameState !== 'PLAYING') return;
