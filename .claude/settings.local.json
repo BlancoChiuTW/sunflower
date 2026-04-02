@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /home/blanco/steam/sunflower-protocol -type f \\\\\\(-iname *dialog* -o -iname *dialogue* -o -iname asset-requirements* -o -iname *level* -o -iname *stage* -o -iname *chapter* \\\\\\))",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(grep -rn \"emoji\\\\|🔥\\\\|💧\\\\|🪨\\\\|🔔\\\\|🚪\\\\|📋\\\\|🎯\\\\|💡\\\\|❌\\\\|🛡️\\\\|🏃\\\\|👊\\\\|🔑\\\\|⏱\\\\|⚔\\\\|🔍\\\\|✨\\\\|⏳\\\\|↩\\\\|⟳\\\\|🔇\\\\|🔊\\\\|❗\\\\|💀\\\\|👑\\\\|🧑\\\\|🧱\" /home/blanco/steam/sunflower-protocol/src/components/ --include=*.vue)",
+      "Bash(grep -r \"sfx\\\\|audio\\\\|sound\" /home/blanco/steam/sunflower-protocol/src --include=*.ts --include=*.vue --include=*.tsx)",
+      "*",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

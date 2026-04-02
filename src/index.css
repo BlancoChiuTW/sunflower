@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════
+   SUNFLOWER PROTOCOL — Design System
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Color Palette ── */
+  --color-bg-primary: #0a0e1a;
+  --color-bg-panel: #111827;
+  --color-bg-panel-dark: #0d1117;
+  --color-border-panel: #2a3a5c;
+  --color-border-accent: #3b82f6;
+  --color-border-gold: #d4a54a;
+
+  /* Entity colors */
+  --color-player: #38bdf8;
+  --color-player-bg: #0c4a6e;
+  --color-enemy: #ef4444;
+  --color-enemy-bg: #450a0a;
+  --color-boss: #c026d3;
+  --color-boss-bg: #4a044e;
+  --color-npc: #2dd4bf;
+  --color-npc-bg: #042f2e;
+  --color-obstacle: #78716c;
+  --color-obstacle-bg: #292524;
+  --color-interact: #fbbf24;
+  --color-interact-bg: #451a03;
+  --color-heal: #22c55e;
+  --color-heal-bg: #052e16;
+  --color-material: #a78bfa;
+  --color-material-bg: #2e1065;
+
+  /* ── Typography ── */
+  --font-ui: 'Rajdhani', 'Noto Sans TC', system-ui, sans-serif;
+  --font-body: 'Noto Sans TC', system-ui, sans-serif;
+
+  /* ── Spacing ── */
+  --panel-radius: 8px;
+  --panel-padding: 12px;
+
+  /* ── Shadows ── */
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 1px rgba(59, 130, 246, 0.1);
+  --shadow-glow-blue: 0 0 20px rgba(59, 130, 246, 0.3);
+  --shadow-glow-gold: 0 0 15px rgba(212, 165, 74, 0.3);
+}
+
+/* ── Base styles ── */
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg-primary);
+  color: #e2e8f0;
+  overflow: hidden;
+  cursor: default;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Game Panel Frame (shared across all HUD panels) ── */
+.game-panel {
+  background: linear-gradient(180deg, var(--color-bg-panel) 0%, var(--color-bg-panel-dark) 100%);
+  border: 1px solid var(--color-border-panel);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-panel);
+  position: relative;
+}
+
+.game-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  pointer-events: none;
+}
+
+/* Panel with gold accent border (for important panels) */
+.game-panel-accent {
+  border-color: var(--color-border-gold);
+  box-shadow: var(--shadow-panel), var(--shadow-glow-gold);
+}
+
+/* ── Game Button ── */
+.game-btn {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--color-border-panel);
+  border-radius: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #94a3b8;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.game-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.game-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.game-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.game-btn-primary {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.game-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.game-btn-danger {
+  background: linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%);
+  border-color: #dc2626;
+  color: #fca5a5;
+}
+
+.game-btn-danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, #b91c1c 0%, #991b1b 100%);
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.3);
+}
+
+/* ── UI Title Font ── */
+.font-ui {
+  font-family: var(--font-ui);
+}
+
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
