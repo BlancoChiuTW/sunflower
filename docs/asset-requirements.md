@@ -433,30 +433,176 @@ public/assets/
 
 ---
 
-## 7. 待處理項目清單
+## 7. 素材盤點（磁碟 vs 程式碼引用）
 
-### ✅ 已完成（原高優先）
+> 盤點日期: 2026-04-03
+> 掃描路徑: `public/assets/`
+
+### 7-A. 角色立繪 `characters/` — ✅ 完備（53 檔）
+
+**對話立繪**（DialogueBox.vue PORTRAIT_MAP → `char_{id}.png`）：
+
+| 角色 | 需求數 | 磁碟數 | 狀態 | 缺少 |
+|------|:-----:|:-----:|:----:|------|
+| 阿典 | 10 | 10 | ✅ | — |
+| 雅晴 | 14 | 14 | ✅ | — |
+| 萱萱 | 10 | 10 | ✅ | — |
+| 乃蓉 | 10 | 10 | ✅ | — |
+| 校長 | 3 | 3 | ✅ | — |
+| 赤星學生 | 1 | 1 | ✅ | — |
+
+**戰棋頭像**（BattleGrid.vue getPortraitId → `char_{id}_normal.png`）：
+
+| 檔案 | 狀態 |
+|------|:----:|
+| `char_a_dian_normal.png` | ✅ |
+| `char_ya_qing_normal.png` | ✅ |
+| `char_nai_rong_normal.png` | ✅ |
+| `char_xuan_xuan_normal.png` | ✅ |
+
+**磁碟上有但程式碼未引用**（額外檔案）：
+
+| 檔案 | 說明 |
+|------|------|
+| `char_nai_rong_battle_ball.png` | 疑似乃蓉戰鬥揮棒差分備選，未被任何程式碼引用 |
+
+### 7-B. 場景背景 `backgrounds/` — ❌ 全缺（目錄不存在）
+
+程式碼引用 7 張背景圖，**全部缺少**：
+
+| 需要的檔案 | 引用來源 | 狀態 |
+|-----------|---------|:----:|
+| `bg_west_corridor.png` | `levels.ts`, `dialogues.ts` | ❌ |
+| `bg_corridor_dark.png` | `dialogues.ts` | ❌ |
+| `bg_control_room.png` | `levels.ts`, `dialogues.ts` | ❌ |
+| `bg_main_hall.png` | `levels.ts`, `dialogues.ts` | ❌ |
+| `bg_principal_office.png` | `levels.ts`, `dialogues.ts` | ❌ |
+| `bg_gate_night.png` | `levels.ts`, `dialogues.ts` | ❌ |
+| `bg_gate_dawn.png` | `dialogues.ts` | ❌ |
+
+需求清單另有 4 張變體（damaged 等），程式碼尚未引用，可暫不製作。
+
+### 7-C. 事件插畫 `cg/` — ❌ 全缺（目錄不存在）
+
+程式碼引用 11 張 CG，**全部缺少**：
+
+| 需要的檔案 | 章節 | 類型 | 狀態 |
+|-----------|------|------|:----:|
+| `cg_gate_breach.png` | Ch1 | 劇情 | ❌ |
+| `cg_door_breach.png` | Ch2 | 劇情 | ❌ |
+| `cg_nairong_hold.png` | Ch3 | 劇情 | ❌ |
+| `cg_evidence.png` | Ch4 | 劇情 | ❌ |
+| `cg_dawn_rally.png` | Ch5 | 劇情 | ❌ |
+| `cg_defeat_xuanxuan.png` | Ch2 | H-戰敗 | ❌ |
+| `cg_defeat_nairong.png` | Ch3 | H-戰敗 | ❌ |
+| `cg_defeat_yaqing.png` | Ch4 | H-戰敗 | ❌ |
+| `cg_reward_xuanxuan.png` | Ch2 | H-勝利 | ❌ |
+| `cg_reward_nairong.png` | Ch3 | H-勝利 | ❌ |
+| `cg_reward_yaqing.png` | Ch4 | H-勝利 | ❌ |
+
+### 7-D. 背景音樂 `bgm/` — ✅ 完備（11 檔）
+
+| 檔案 | 程式碼引用 | 狀態 |
+|------|----------|:----:|
+| `bgm_menu.mp3` | `App.vue:69,103` | ✅ |
+| `bgm_story_tense.mp3` | `dialogues.ts` (12 處) | ✅ |
+| `bgm_battle_defend.mp3` | `levels.ts` | ✅ |
+| `bgm_battle_stealth.mp3` | `levels.ts` | ✅ |
+| `bgm_battle_escort.mp3` | `levels.ts` | ✅ |
+| `bgm_battle_boss.mp3` | `levels.ts` | ✅ |
+| `bgm_dawn_rally.mp3` | `levels.ts`, `dialogues.ts` | ✅ |
+| `bgm_dawn_theme.mp3` | `dialogues.ts` | ✅ |
+| `bgm_intimate.mp3` | `dialogues.ts` (3 處) | ✅ |
+| `bgm_victory.mp3` | `gameStore.ts` | ✅ |
+| `bgm_defeat.mp3` | `gameStore.ts` | ✅ |
+
+### 7-E. 音效 `se/` — ✅ 完備（24 檔）
+
+**劇情音效**（DialogueBox.vue → `se_{sfxId}.mp3`）：
+
+| 檔案 | 狀態 |
+|------|:----:|
+| `se_radio_broadcast.mp3` | ✅ |
+| `se_gate_crash.mp3` | ✅ |
+| `se_alarm_trigger.mp3` | ✅ |
+| `se_door_kick.mp3` | ✅ |
+| `se_radio_comm.mp3` | ✅ |
+| `se_vent_break.mp3` | ✅ |
+| `se_electronic_lock.mp3` | ✅ |
+| `se_door_break.mp3` | ✅ |
+| `se_secret_door.mp3` | ✅ |
+| `se_school_anthem.mp3` | ✅ |
+
+**戰鬥/UI 音效**（gameStore.ts `playSfx()` → `se_{id}.mp3`）：
+
+| 檔案 | 觸發場景 | 狀態 |
+|------|---------|:----:|
+| `se_ui_select.mp3` | 選擇角色 | ✅ |
+| `se_hit_bash.mp3` | 盾擊/推撞 | ✅ |
+| `se_skill_baton.mp3` | 阿典技能 | ✅ |
+| `se_skill_bat.mp3` | 乃蓉技能 | ✅ |
+| `se_skill_heal.mp3` | 雅晴技能 | ✅ |
+| `se_skill_noise.mp3` | 萱萱技能 | ✅ |
+| `se_push_collision.mp3` | 推撞碰撞 | ✅ |
+| `se_barricade_build.mp3` | Ch1 路障 | ✅ |
+| `se_interact.mp3` | 互動確認 | ✅ |
+| `se_trap_alert.mp3` | 陷阱警告 | ✅ |
+| `se_trap_trigger.mp3` | 陷阱觸發 | ✅ |
+| `se_reinforcement.mp3` | 敵人增援 | ✅ |
+| `se_evacuate.mp3` | NPC 撤離 | ✅ |
+| `se_turn_switch.mp3` | 回合切換 | ✅ |
+
+### 7-F. 盤點總結
+
+| 類別 | 需求數 | 磁碟數 | 缺少數 | 完成率 |
+|------|:-----:|:-----:|:-----:|:-----:|
+| 角色立繪（對話） | 48 | 48 | 0 | **100%** |
+| 角色頭像（戰棋） | 4 | 4 | 0 | **100%** |
+| 場景背景 | 7 | 0 | **7** | **0%** |
+| 事件 CG | 11 | 0 | **11** | **0%** |
+| BGM | 11 | 11 | 0 | **100%** |
+| SE | 24 | 24 | 0 | **100%** |
+| **合計** | **105** | **87** | **18** | **83%** |
+
+> 額外檔案：`char_nai_rong_battle_ball.png`（1 檔，未被引用）
+
+---
+
+## 8. 待處理項目清單
+
+### 🔴 高優先（缺少素材，影響遊戲顯示）
+
+| # | 項目 | 數量 | 說明 |
+|---|------|:----:|------|
+| 1 | **場景背景圖** | 7 張 | `backgrounds/` 目錄不存在，全部背景缺失。程式碼有 `@error` fallback 但無圖顯示黑屏 |
+| 2 | **事件 CG 插畫** | 11 張 | `cg/` 目錄不存在，劇情 CG + H-scene CG 全缺。CG 覆蓋層無圖時不顯示 |
+
+### ✅ 已完成
 
 | # | 項目 | 完成狀態 |
 |---|------|---------|
 | 1 | **SFX 播放系統** | ✅ `DialogueBox.vue` watcher + `gameStore.ts` `playSfx()` 已全部連接 |
-| 2 | **對話立繪圖片載入** | ✅ `DialogueBox.vue` 使用 PORTRAIT_MAP 映射，路徑：`/assets/characters/char_{id}_{expression}.png` |
+| 2 | **對話立繪圖片載入** | ✅ `DialogueBox.vue` 使用 PORTRAIT_MAP 映射，48 張全部到位 |
 | 3 | **對話特效** | ✅ `light_flicker`, `shake`, `fade_out` 三種 CSS 動畫效果已實作 |
-| 4 | **戰鬥/UI 音效全部連接** | ✅ 24 個音效全部透過 `playSfx()` 連接，含互動、陷阱、路障等 |
-| 5 | **主選單 BGM** | ✅ `App.vue` 全域 BGM 系統，自動播放 `bgm_menu`，場景切換含淡入淡出 |
-| 6 | **技能施放特效增強** | ✅ 6 種技能 CSS 特效全部升級（多層效果、偽元素粒子、衝擊波環） |
+| 4 | **戰鬥/UI 音效全部連接** | ✅ 24 個音效全部透過 `playSfx()` 連接且檔案到位 |
+| 5 | **主選單 BGM** | ✅ `App.vue` 全域 BGM 系統，11 首全部到位 |
+| 6 | **技能施放特效增強** | ✅ 6 種技能 CSS 特效（多層效果、偽元素粒子、衝擊波環） |
+| 7 | **角色立繪素材** | ✅ 48 張對話立繪 + 4 張戰棋頭像全部到位 |
+| 8 | **音效素材** | ✅ 24 個 SE 檔案全部到位（MP3 格式） |
+| 9 | **BGM 素材** | ✅ 11 首 BGM 檔案全部到位（MP3 格式） |
 
-### 🟡 中優先（命名不一致 & 格式不一致）
+### 🟡 中優先（命名 & 格式不一致）
 
 | # | 項目 | 說明 | 建議 |
 |---|------|------|------|
-| 1 | **角色 ID 命名不一致** | 需求清單用 `char_adian`，程式碼用 `char_a_dian`（底線分隔） | 統一為底線分隔格式（`a_dian`），同步修改需求清單第 1 節 |
-| 2 | **音訊副檔名不一致** | 需求清單命名 `.ogg`，程式碼載入 `.mp3` | 統一為 MP3（Electron 相容性佳），或批次修改程式碼路徑 |
+| 1 | **角色 ID 命名不一致** | 需求清單第 1 節用 `char_adian`，程式碼與實際檔案用 `char_a_dian`（底線分隔） | 統一修改需求清單第 1 節為底線分隔格式 |
+| 2 | **音訊副檔名不一致** | 需求清單命名 `.ogg`，實際檔案與程式碼皆為 `.mp3` | 已統一為 MP3，需更新需求清單第 4 節命名規範 |
+| 3 | **額外未引用檔案** | `char_nai_rong_battle_ball.png` 存在但無程式碼引用 | 確認是否為備選素材，或移除 |
 
 ### 🟢 低優先（規劃項目）
 
 | # | 項目 | 說明 | 建議 |
 |---|------|------|------|
-| 1 | **背景圖變體未使用** | damaged/戰鬥後變體列於需求但無切換邏輯 | 可暫不製作，待劇情系統支援場景切換時再加 |
+| 1 | **背景圖變體** | damaged/戰鬥後共 4 張變體列於需求但程式碼無切換邏輯 | 待劇情系統支援場景切換時再加 |
 | 2 | **Google Fonts 離線化** | 目前依賴 CDN，Steam 離線環境可能無法載入 | 發行前需下載 woff2 檔案並改為本地載入 |
-| 3 | **教學系統圖示** | `TutorialOverlay.vue` 使用 Iconify 圖示，無額外素材需求 | 若需自訂圖示風格，可替換為本地 SVG |
+| 3 | **教學系統圖示** | `TutorialOverlay.vue` 使用 Iconify CDN 圖示 | 若需離線可替換為本地 SVG |
