@@ -70,6 +70,9 @@ export const useGameStore = defineStore('game', {
     animAttackerId: null as string | null,
     animAttackDir: null as { x: number; y: number } | null,
     animHitIds: [] as string[],
+    // --- Tutorial state ---
+    tutorialStep: -1, // -1 = not active
+    tutorialCompleted: false,
   }),
 
   getters: {
@@ -195,7 +198,9 @@ export const useGameStore = defineStore('game', {
         ...e,
         position: { x: e.x, y: e.y },
         status: [],
+        hasMoved: false,
         hasActed: false,
+        skills: e.skills ? e.skills.map(s => ({ ...s, currentCooldown: 0 })) : undefined,
       } as any));
       this.currentTurn = 'PLAYER';
       this.turnNumber = 1;
@@ -232,6 +237,7 @@ export const useGameStore = defineStore('game', {
         ...e,
         position: { x: e.x, y: e.y },
         status: [],
+        hasMoved: false,
         hasActed: false,
         skills: e.skills ? e.skills.map(s => ({ ...s, currentCooldown: 0 })) : undefined,
       } as any));
@@ -506,7 +512,12 @@ export const useGameStore = defineStore('game', {
       this.selectedEntityId = id;
       this.selectedSkill = null;
       this.targetingTiles = [];
-      this.unitActionPhase = entity?.type === 'PLAYER' ? 'MOVING' : 'IDLE';
+      // If already moved but not acted, go straight to action phase
+      if (entity?.type === 'PLAYER' && entity.hasMoved) {
+        this.unitActionPhase = 'ACTION_SELECT';
+      } else {
+        this.unitActionPhase = entity?.type === 'PLAYER' ? 'MOVING' : 'IDLE';
+      }
       this.preMovementPosition = null;
     },
 
@@ -539,6 +550,29 @@ export const useGameStore = defineStore('game', {
 
     dismissMissionBriefing() {
       this.showMissionBriefing = false;
+      // Start tutorial on Chapter 1 first play
+      if (this.currentLevelId === 'chapter-1' && !this.tutorialCompleted) {
+        const saved = localStorage.getItem('tutorialCompleted');
+        if (!saved) {
+          this.tutorialStep = 0;
+        }
+      }
+    },
+
+    nextTutorialStep() {
+      this.tutorialStep++;
+    },
+
+    skipTutorial() {
+      this.tutorialStep = -1;
+      this.tutorialCompleted = true;
+      localStorage.setItem('tutorialCompleted', 'true');
+    },
+
+    completeTutorial() {
+      this.tutorialStep = -1;
+      this.tutorialCompleted = true;
+      localStorage.setItem('tutorialCompleted', 'true');
     },
 
     /** BFS pathfinding on the grid */
@@ -587,18 +621,33 @@ export const useGameStore = defineStore('game', {
         entity.position = { x: step.x, y: step.y };
         await new Promise(r => setTimeout(r, 120));
       }
+      entity.hasMoved = true;
       this.isAnimatingMove = false;
     },
 
     /** Cancel movement and return to pre-move position */
     cancelMove() {
-      if (!this.selectedEntityId || !this.preMovementPosition) return;
+      if (!this.selectedEntityId) return;
       const entity = this.entities.find(e => e.id === this.selectedEntityId);
-      if (entity) {
+      if (entity && this.preMovementPosition) {
         entity.position = { ...this.preMovementPosition };
+        entity.hasMoved = false;
       }
       this.preMovementPosition = null;
       this.unitActionPhase = 'MOVING';
+    },
+
+    /** Commit the current move (keep position) and deselect to allow switching characters */
+    commitMoveAndDeselect() {
+      const entity = this.entities.find(e => e.id === this.selectedEntityId);
+      if (entity) {
+        entity.hasMoved = true;
+      }
+      this.preMovementPosition = null;
+      this.selectedEntityId = null;
+      this.selectedSkill = null;
+      this.targetingTiles = [];
+      this.unitActionPhase = 'IDLE';
     },
 
     /** Get adjacent interactables for action menu */
@@ -681,6 +730,7 @@ export const useGameStore = defineStore('game', {
         const caster = this.entities.find(e => e.id === casterId);
         if (caster) {
           // Re-enable the unit for bonus action
+          caster.hasMoved = false;
           caster.hasActed = false;
           this.killChainActive = true;
           this.killChainUsedIds.push(casterId);
@@ -864,6 +914,7 @@ export const useGameStore = defineStore('game', {
 
       this.saveSnapshot();
       this.interactedTargets.push(targetId);
+      this.playSfx('se_interact');
 
       // Ch1: medkit — heal the interacting unit
       if (targetId.startsWith('medkit')) {
@@ -880,6 +931,7 @@ export const useGameStore = defineStore('game', {
         target.name = '路障';
         target.hp = 15;
         target.maxHp = 15;
+        this.playSfx('se_barricade_build');
         this.lastActionMessage = `${caster.name} 架設了路障！`;
       }
       // Ch2: door switch blocks reinforcements
@@ -1246,6 +1298,7 @@ export const useGameStore = defineStore('game', {
         const nairong = this.entities.find(e => e.id === 'player-nairong');
         if (nairong && nairong.type === 'NPC') {
           nairong.type = 'PLAYER';
+          nairong.hasMoved = false;
           nairong.hasActed = false;
           this.lastActionMessage = '王乃蓉加入了戰鬥！';
           this.pushNotification('💪 王乃蓉加入戰鬥！現在可以操作她了', 'success');
@@ -1257,7 +1310,7 @@ export const useGameStore = defineStore('game', {
       if (this.currentLevelId === 'chapter-5' && this.turnNumber === 4) {
         // Reset player actions before entering story
         this.entities.forEach(e => {
-          if (e.type === 'PLAYER') e.hasActed = false;
+          if (e.type === 'PLAYER') { e.hasMoved = false; e.hasActed = false; }
         });
         this.computeEnemyIntents();
         this.startDialogue('chapter-5_event');
@@ -1266,14 +1319,17 @@ export const useGameStore = defineStore('game', {
 
       // --- Ch4: apply trap damage at start of player turn ---
       if (this.trapTiles.length > 0) {
+        let trapTriggered = false;
         for (const trap of this.trapTiles) {
           const entity = this.getEntityAt(trap.x, trap.y);
           if (entity && (entity.type === 'PLAYER' || entity.type === 'NPC')) {
             const dmg = 2;
             entity.hp -= dmg;
             this.showDamage(trap.x, trap.y, dmg);
+            trapTriggered = true;
           }
         }
+        if (trapTriggered) this.playSfx('se_trap_trigger');
         this.checkDeaths();
         if (this.gameState !== 'PLAYING') return;
       }
@@ -1335,6 +1391,7 @@ export const useGameStore = defineStore('game', {
       this.killChainUsedIds = [];
       this.entities.forEach(e => {
         if (e.type === 'PLAYER') {
+          e.hasMoved = false;
           e.hasActed = false;
           // Tick skill cooldowns
           e.skills?.forEach(s => {
@@ -1399,6 +1456,7 @@ export const useGameStore = defineStore('game', {
         attempts++;
       }
       if (this.trapTiles.length > 0) {
+        this.playSfx('se_trap_alert');
         this.lastActionMessage = '白狼啟動了地板陷阱！注意危險格！';
       }
 

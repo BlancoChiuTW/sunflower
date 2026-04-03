@@ -327,9 +327,9 @@ public/assets/
 
 | 類別 | 資料欄位 | 資料位置 | 狀態 | 說明 |
 |------|---------|---------|------|------|
-| 音效 (SFX) | `sfx` 欄位 | `dialogues.ts` (11 處) | ⚠️ 僅存資料，未實作播放 | 無 SFX 播放系統，`sfx` 欄位值從未被消費 |
-| 對話立繪 | `portrait` 欄位 | `dialogues.ts` (160 處) | ⚠️ 僅顯示文字 | `DialogueBox.vue` 將 portrait 值渲染為文字，非圖片 |
-| 對話特效 | `effect` 欄位 | `dialogues.ts` | ⚠️ 僅存資料，未實作 | `light_flicker`, `shake`, `fade_out` 效果未實作 |
+| 音效 (SFX) | `sfx` 欄位 | `dialogues.ts` (11 處) | ✅ 已實作 | `DialogueBox.vue` 透過 watcher 播放 `se_{sfxId}.mp3` |
+| 對話立繪 | `portrait` 欄位 | `dialogues.ts` (160 處) | ✅ 已實作 | `DialogueBox.vue` 使用 PORTRAIT_MAP 映射載入立繪圖片 |
+| 對話特效 | `effect` 欄位 | `dialogues.ts` | ✅ 已實作 | `light_flicker`, `shake`, `fade_out` 三種 CSS 動畫效果 |
 
 ### 6-C. 戰棋頭像引用——實際需要的檔案
 
@@ -378,9 +378,9 @@ public/assets/
 | `bgm_defeat` | `gameStore.ts:481` | ✅ |
 | `bgm_menu` | — | ⚠️ 列於需求但程式碼未引用 |
 
-### 6-F. SFX——資料中定義但無播放程式碼
+### 6-F. SFX——對話 SFX 播放狀態
 
-以下 SFX ID 存在於 `dialogues.ts` 的 `sfx` 欄位，但整個專案 **沒有任何程式碼讀取或播放它們**：
+以下 SFX ID 存在於 `dialogues.ts` 的 `sfx` 欄位，**已透過 `DialogueBox.vue` watcher 實作播放**（路徑：`/assets/se/se_{sfxId}.mp3`）：
 
 | SFX ID (不含 `se_` 前綴) | dialogues.ts 行號 | asset-requirements.md 第 4-B 節是否已列 |
 |-------------------------|-------------------|:-----------------------------------:|
@@ -395,8 +395,8 @@ public/assets/
 | `secret_door` | 485 | ✅ |
 | `school_anthem` | 551 | ✅ |
 
-> **注意**：第 4-B 節另列了 14 個戰鬥/UI 音效（se_hit_bash ~ se_turn_switch），
-> 這些在程式碼和資料中 **完全沒有引用**，屬於純規劃項目。
+> **注意**：第 4-B 節的 14 個戰鬥/UI 音效（se_hit_bash ~ se_turn_switch）已全部在 `gameStore.ts` 中透過 `playSfx()` 連接。
+> 包含：互動音效 `se_interact`、路障架設 `se_barricade_build`、陷阱警告 `se_trap_alert`、陷阱觸發 `se_trap_trigger` 等。
 
 ### 6-G. 事件 CG——程式碼引用 vs 需求清單比對
 
@@ -429,26 +429,26 @@ public/assets/
 
 ## 7. 待處理項目清單
 
-### 🔴 高優先（影響遊戲功能）
+### ✅ 已完成（原高優先）
 
-| # | 項目 | 說明 | 建議 |
-|---|------|------|------|
-| 1 | **SFX 播放系統未實作** | `dialogues.ts` 有 10 個 sfx 值，但無任何程式碼消費 `sfx` 欄位 | 在 `DialogueBox.vue` 或 `gameStore.ts` 加入 SFX 播放邏輯 |
-| 2 | **對話立繪未實作圖片載入** | `DialogueBox.vue` 將 portrait 渲染為文字，非圖片 | 實作立繪圖片載入，路徑模式：`/assets/characters/char_{id}_{expression}.png` |
-| 3 | **對話特效未實作** | `effect` 欄位（`light_flicker`, `shake`, `fade_out`）未被消費 | 在 `DialogueBox.vue` 中加入 effect 處理邏輯 |
+| # | 項目 | 完成狀態 |
+|---|------|---------|
+| 1 | **SFX 播放系統** | ✅ `DialogueBox.vue` watcher + `gameStore.ts` `playSfx()` 已全部連接 |
+| 2 | **對話立繪圖片載入** | ✅ `DialogueBox.vue` 使用 PORTRAIT_MAP 映射，路徑：`/assets/characters/char_{id}_{expression}.png` |
+| 3 | **對話特效** | ✅ `light_flicker`, `shake`, `fade_out` 三種 CSS 動畫效果已實作 |
+| 4 | **戰鬥/UI 音效全部連接** | ✅ 24 個音效全部透過 `playSfx()` 連接，含互動、陷阱、路障等 |
+| 5 | **主選單 BGM** | ✅ `App.vue` 全域 BGM 系統，自動播放 `bgm_menu`，場景切換含淡入淡出 |
+| 6 | **技能施放特效增強** | ✅ 6 種技能 CSS 特效全部升級（多層效果、偽元素粒子、衝擊波環） |
 
 ### 🟡 中優先（命名不一致）
 
 | # | 項目 | 說明 | 建議 |
 |---|------|------|------|
-| 4 | **角色 ID 命名不一致** | 需求清單用 `char_adian`，程式碼用 `char_a_dian`（底線分隔） | 統一為其中一種，建議修改 `getPortraitId()` 映射 |
-| 5 | **SFX 路徑前綴未定義** | `dialogues.ts` 存的是 `radio_broadcast`，需求清單用 `se_radio_broadcast` | 實作播放時需確認路徑：`/assets/se/se_{sfxId}.ogg` 或 `/assets/se/{sfxId}.ogg` |
+| 1 | **角色 ID 命名不一致** | 需求清單用 `char_adian`，程式碼用 `char_a_dian`（底線分隔） | 統一為其中一種，建議修改 `getPortraitId()` 映射 |
 
 ### 🟢 低優先（規劃項目）
 
 | # | 項目 | 說明 | 建議 |
 |---|------|------|------|
-| 6 | **主選單 BGM 未連接** | `bgm_menu` 列於需求但 MainMenu.vue 無 BGM 播放 | 新增主選單 BGM 播放邏輯 |
-| 7 | **背景圖變體未使用** | damaged/戰鬥後變體列於需求但無切換邏輯 | 可暫不製作，待劇情系統支援場景切換時再加 |
-| 8 | **戰鬥/UI 音效 (14個) 純規劃** | se_hit_bash 等未在任何程式碼中引用 | 待 SFX 系統實作後再連接 |
-| 9 | **Google Fonts 離線化** | 目前依賴 CDN，Steam 離線環境可能無法載入 | 發行前需下載 woff2 檔案並改為本地載入 |
+| 1 | **背景圖變體未使用** | damaged/戰鬥後變體列於需求但無切換邏輯 | 可暫不製作，待劇情系統支援場景切換時再加 |
+| 2 | **Google Fonts 離線化** | 目前依賴 CDN，Steam 離線環境可能無法載入 | 發行前需下載 woff2 檔案並改為本地載入 |

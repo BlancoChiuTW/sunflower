@@ -69,40 +69,9 @@ const getSkillIcon = (skillId: string) => {
 };
 
 // ══════════════════════════════════════════
-//  BGM AUDIO SYSTEM
+//  BGM UI CONTROL (audio is managed globally in App.vue)
 // ══════════════════════════════════════════
-const bgmAudio = ref<HTMLAudioElement | null>(null);
 const bgmExpanded = ref(false);
-
-// Load saved BGM settings
-onMounted(() => {
-  const savedVol = localStorage.getItem('bgmVolume');
-  const savedMute = localStorage.getItem('bgmMuted');
-  if (savedVol !== null) gameStore.bgmVolume = parseFloat(savedVol);
-  if (savedMute !== null) gameStore.bgmMuted = savedMute === 'true';
-});
-
-watch(() => gameStore.currentBgm, (newBgm) => {
-  if (!bgmAudio.value) return;
-  if (newBgm) {
-    bgmAudio.value.src = `${import.meta.env.BASE_URL}assets/bgm/${newBgm}.mp3`;
-    bgmAudio.value.volume = gameStore.bgmMuted ? 0 : gameStore.bgmVolume;
-    bgmAudio.value.play().catch(() => {});
-  } else {
-    bgmAudio.value.pause();
-  }
-});
-
-watch(() => gameStore.bgmVolume, (vol) => {
-  if (bgmAudio.value && !gameStore.bgmMuted) bgmAudio.value.volume = vol;
-  localStorage.setItem('bgmVolume', String(vol));
-});
-
-watch(() => gameStore.bgmMuted, (muted) => {
-  if (bgmAudio.value) bgmAudio.value.volume = muted ? 0 : gameStore.bgmVolume;
-  localStorage.setItem('bgmMuted', String(muted));
-});
-
 const toggleBgmMute = () => { gameStore.bgmMuted = !gameStore.bgmMuted; };
 
 // ══════════════════════════════════════════
@@ -156,10 +125,10 @@ const cellSize = computed(() => {
   const availH = viewportH.value - 80; // top bar + bottom margin
   const maxByW = Math.floor((availW - (gw - 1) * CELL_GAP) / gw);
   const maxByH = Math.floor((availH - (gh - 1) * CELL_GAP) / gh);
-  return Math.max(40, Math.min(90, maxByW, maxByH));
+  return Math.max(48, Math.min(110, maxByW, maxByH));
 });
 
-const entitySize = computed(() => Math.max(28, cellSize.value - 6));
+const entitySize = computed(() => Math.max(36, cellSize.value - 4));
 const entityOffset = computed(() => Math.floor((cellSize.value - entitySize.value) / 2) + 1);
 const gridPixelW = computed(() => gameStore.gridSize.width * cellSize.value + (gameStore.gridSize.width - 1) * CELL_GAP + 12);
 const gridPixelH = computed(() => gameStore.gridSize.height * cellSize.value + (gameStore.gridSize.height - 1) * CELL_GAP + 12);
@@ -177,7 +146,7 @@ const adjacentInteractables = computed(() => gameStore.getAdjacentInteractables(
 
 const isMovableTile = (x: number, y: number) => {
   const source = selectedEntity.value;
-  if (!source || source.type !== 'PLAYER' || source.hasActed) return false;
+  if (!source || source.type !== 'PLAYER' || source.hasMoved) return false;
   if (gameStore.unitActionPhase !== 'MOVING') return false;
   const moveRange = (source.status && source.status.includes('DAWN_LIGHT')) ? 8 : 3;
   const dist = Math.abs(source.position.x - x) + Math.abs(source.position.y - y);
@@ -221,6 +190,18 @@ const interactProgress = computed(() => {
 
 const isCharacterEntity = (type: string) => type === 'PLAYER' || type === 'ENEMY' || type === 'BOSS' || type === 'NPC';
 
+/** Enemy groups for mission briefing */
+const briefingEnemyGroups = computed(() => {
+  const enemies = gameStore.entities.filter(e => e.type === 'ENEMY' || e.type === 'BOSS');
+  const groups = new Map<string, { name: string; count: number; hp: number; atk: number; isBoss: boolean }>();
+  for (const e of enemies) {
+    const existing = groups.get(e.name);
+    if (existing) { existing.count++; }
+    else { groups.set(e.name, { name: e.name, count: 1, hp: e.maxHp, atk: e.attack || 0, isBoss: e.type === 'BOSS' }); }
+  }
+  return Array.from(groups.values());
+});
+
 const getPortraitId = (entity: any): string | null => {
   const map: Record<string, string> = {
     'player-adian': 'a_dian',
@@ -236,21 +217,44 @@ const getPortraitId = (entity: any): string | null => {
 //  ENTITY VISUAL SYSTEM
 // ══════════════════════════════════════════
 interface EntityVisualStyle {
-  border: string; bg: string; glow: string; icon: string; borderCss: string;
+  icon: string;
   hpBarColor: string; hpBarBg: string;
+  borderColor: string; bgColor: string;
+  glowColor: string; glowAlpha: number;
+  borderWidth: number;
 }
 
 const ENTITY_STYLES: Record<string, EntityVisualStyle> = {
-  PLAYER:       { border: 'border-sky-400',     bg: 'bg-sky-900/90',      glow: '0 4px 14px rgba(56,189,248,0.4)',  icon: ICONS.PLAYER,  borderCss: 'border-2',              hpBarColor: '#38bdf8', hpBarBg: '#0c4a6e' },
-  ENEMY:        { border: 'border-red-500',     bg: 'bg-red-950/90',      glow: '0 4px 12px rgba(239,68,68,0.4)',   icon: ICONS.ENEMY,   borderCss: 'border-2',              hpBarColor: '#ef4444', hpBarBg: '#450a0a' },
-  BOSS:         { border: 'border-fuchsia-400', bg: 'bg-fuchsia-950/90',  glow: '0 4px 16px rgba(192,38,211,0.5)',  icon: ICONS.BOSS,    borderCss: 'border-[3px]',          hpBarColor: '#c026d3', hpBarBg: '#4a044e' },
-  NPC:          { border: 'border-teal-400',    bg: 'bg-teal-900/90',     glow: '0 4px 12px rgba(45,212,191,0.3)',  icon: ICONS.NPC,     borderCss: 'border-2',              hpBarColor: '#2dd4bf', hpBarBg: '#042f2e' },
-  OBSTACLE:     { border: 'border-stone-500',   bg: 'bg-stone-800/90',    glow: '0 3px 6px rgba(0,0,0,0.4)',       icon: ICONS.OBSTACLE, borderCss: 'border-2 border-dashed', hpBarColor: '#78716c', hpBarBg: '#292524' },
-  INTERACTABLE: { border: 'border-amber-400',   bg: 'bg-amber-950/90',    glow: '0 4px 14px rgba(251,191,36,0.4)', icon: ICONS.INTERACTABLE, borderCss: 'border-2 border-double', hpBarColor: '#fbbf24', hpBarBg: '#451a03' },
+  PLAYER:       { icon: ICONS.PLAYER,       hpBarColor: '#38bdf8', hpBarBg: '#0c4a6e', borderColor: '#38bdf8', bgColor: 'rgba(12,74,110,0.92)', glowColor: '56,189,248',   glowAlpha: 0.45, borderWidth: 3 },
+  ENEMY:        { icon: ICONS.ENEMY,        hpBarColor: '#ef4444', hpBarBg: '#450a0a', borderColor: '#ef4444', bgColor: 'rgba(69,10,10,0.92)',  glowColor: '239,68,68',    glowAlpha: 0.4,  borderWidth: 3 },
+  BOSS:         { icon: ICONS.BOSS,         hpBarColor: '#c026d3', hpBarBg: '#4a044e', borderColor: '#c026d3', bgColor: 'rgba(74,4,78,0.92)',   glowColor: '192,38,211',   glowAlpha: 0.55, borderWidth: 4 },
+  NPC:          { icon: ICONS.NPC,          hpBarColor: '#2dd4bf', hpBarBg: '#042f2e', borderColor: '#2dd4bf', bgColor: 'rgba(4,47,46,0.92)',   glowColor: '45,212,191',   glowAlpha: 0.35, borderWidth: 3 },
+  OBSTACLE:     { icon: ICONS.OBSTACLE,     hpBarColor: '#78716c', hpBarBg: '#292524', borderColor: '#57534e', bgColor: 'rgba(41,37,36,0.92)',  glowColor: '0,0,0',        glowAlpha: 0.3,  borderWidth: 2 },
+  INTERACTABLE: { icon: ICONS.INTERACTABLE, hpBarColor: '#fbbf24', hpBarBg: '#451a03', borderColor: '#fbbf24', bgColor: 'rgba(69,26,3,0.92)',   glowColor: '251,191,36',   glowAlpha: 0.5,  borderWidth: 3 },
 };
 
 const DEFAULT_STYLE = ENTITY_STYLES['OBSTACLE']!;
 const getStyle = (entity: any) => ENTITY_STYLES[entity.type as string] ?? DEFAULT_STYLE;
+
+/** Build inline style for entity outer container */
+const getEntityContainerStyle = (entity: any) => {
+  const s = getStyle(entity);
+  const isChar = isCharacterEntity(entity.type);
+  const isSelected = gameStore.selectedEntityId === entity.id;
+  const selectedGlow = isSelected ? `, 0 0 20px rgba(${s.glowColor},0.7), 0 0 40px rgba(${s.glowColor},0.25)` : '';
+  return {
+    width: `${entitySize.value}px`,
+    height: `${entitySize.value}px`,
+    left: `${entity.position.x * (cellSize.value + CELL_GAP) + entityOffset.value + 1}px`,
+    top: `${entity.position.y * (cellSize.value + CELL_GAP) + entityOffset.value + 1}px`,
+    border: `${s.borderWidth}px solid ${s.borderColor}`,
+    background: `linear-gradient(160deg, ${s.bgColor} 0%, rgba(0,0,0,0.85) 100%)`,
+    borderRadius: isChar ? '50%' : '8px',
+    boxShadow: `0 4px 14px rgba(${s.glowColor},${s.glowAlpha}), inset 0 1px 0 rgba(255,255,255,0.08)${selectedGlow}`,
+    transition: 'left 0.15s ease-out, top 0.15s ease-out, box-shadow 0.3s ease',
+    ...getLungeVars(entity),
+  };
+};
 
 /** HP bar gradient: green → yellow → red based on ratio */
 const getHpGradient = (entity: any) => {
@@ -327,11 +331,15 @@ const handleCellClick = async (x: number, y: number) => {
     return;
   }
 
-  // ACTION_SELECT: cancel on grid click
+  // ACTION_SELECT: commit move & deselect, or switch to another player
   if (phase === 'ACTION_SELECT') {
     const entity = getEntityAt(x, y);
-    if (!entity || entity.id !== gameStore.selectedEntityId) {
-      gameStore.cancelMove();
+    if (entity && entity.type === 'PLAYER' && !entity.hasActed && entity.id !== gameStore.selectedEntityId) {
+      // Switch to another player: commit current entity's move
+      gameStore.commitMoveAndDeselect();
+      gameStore.selectEntity(entity.id);
+    } else if (!entity || entity.id !== gameStore.selectedEntityId) {
+      gameStore.commitMoveAndDeselect();
     }
     return;
   }
@@ -342,8 +350,16 @@ const handleCellClick = async (x: number, y: number) => {
     if (!source) { gameStore.selectEntity(null); return; }
     const entity = getEntityAt(x, y);
 
-    if (entity && entity.id === source.id) { gameStore.inspectedEntityId = null; gameStore.selectEntity(null); return; }
-    if (entity && entity.type === 'PLAYER' && !entity.hasActed) { gameStore.inspectedEntityId = null; gameStore.selectEntity(entity.id); return; }
+    // Click self in MOVING phase = stay in place, go to ACTION_SELECT
+    if (entity && entity.id === source.id) {
+      gameStore.inspectedEntityId = null;
+      gameStore.saveSnapshot();
+      gameStore.preMovementPosition = { ...source.position };
+      source.hasMoved = true;
+      gameStore.unitActionPhase = 'ACTION_SELECT';
+      return;
+    }
+    if (entity && entity.type === 'PLAYER' && !entity.hasActed && entity.id !== source.id) { gameStore.inspectedEntityId = null; gameStore.selectEntity(entity.id); return; }
 
     if (!entity && isMovableTile(x, y)) {
       gameStore.saveSnapshot();
@@ -383,6 +399,15 @@ const handleCellClick = async (x: number, y: number) => {
 
 // ── Action handlers ──
 const handleWait = () => { const s = selectedEntity.value; if (s) gameStore.markActionDone(s.id); };
+const handleSkipMove = () => {
+  const s = selectedEntity.value;
+  if (s) {
+    gameStore.saveSnapshot();
+    gameStore.preMovementPosition = { ...s.position };
+    s.hasMoved = true;
+    gameStore.unitActionPhase = 'ACTION_SELECT';
+  }
+};
 const handlePushAttack = () => { gameStore.enterAttackTargeting(); };
 const handleSkillSelect = (skill: any) => { gameStore.selectSkill(skill); };
 const handleCancelAction = () => { gameStore.cancelMove(); };
@@ -661,57 +686,90 @@ const restartGame = () => { gameStore.restartBattle(); };
 
           <!-- Entity Layer -->
           <div v-for="entity in gameStore.entities" :key="entity.id"
-            class="absolute flex flex-col items-center justify-center font-bold overflow-hidden select-none"
+            class="absolute select-none entity-unit"
             :class="[
-              isCharacterEntity(entity.type) ? 'rounded-full' : 'rounded-lg',
-              getStyle(entity).border, getStyle(entity).bg, getStyle(entity).borderCss,
               getAnimClass(entity),
-              entity.type === 'PLAYER' && entity.hasActed ? 'grayscale opacity-40' : '',
-              gameStore.selectedEntityId === entity.id ? 'ring-2 ring-sky-300 z-20 selected-pulse' : 'z-10',
-              entity.type === 'PLAYER' && entity.status?.includes('DAWN_LIGHT') ? 'ring-2 ring-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.7)]' : '',
-              hasAdjacentAlly(entity) ? 'ring-1 ring-cyan-400/50' : '',
-              entity.status?.includes('GUARDING') ? 'ring-2 ring-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.5)]' : '',
-              entity.status?.includes('RALLIED') ? 'ring-2 ring-green-400 shadow-[0_0_12px_rgba(34,197,94,0.5)]' : '',
-              entity.status?.includes('ENRAGED') ? 'ring-2 ring-red-600 shadow-[0_0_16px_rgba(220,38,38,0.7)]' : '',
+              entity.type === 'PLAYER' && entity.hasActed ? 'entity-exhausted' : '',
+              gameStore.selectedEntityId === entity.id ? 'z-20 selected-pulse' : 'z-10',
               gameStore.currentTurn === 'PLAYER' && !gameStore.isProcessingTurn && gameStore.gameState === 'PLAYING' && !(entity.type === 'PLAYER' && entity.hasActed)
                 ? 'cursor-pointer' : 'cursor-not-allowed',
             ]"
-            :style="{
-              width: `${entitySize}px`, height: `${entitySize}px`,
-              left: `${entity.position.x * (cellSize + CELL_GAP) + entityOffset + 1}px`,
-              top: `${entity.position.y * (cellSize + CELL_GAP) + entityOffset + 1}px`,
-              boxShadow: getStyle(entity).glow,
-              transition: 'left 0.15s ease-out, top 0.15s ease-out',
-              backgroundImage: getPortraitId(entity) ? `url(${baseUrl}assets/characters/char_${getPortraitId(entity)}_normal.png)` : 'none',
-              backgroundSize: 'cover', backgroundPosition: 'center',
-              ...getLungeVars(entity),
-            }"
+            :style="getEntityContainerStyle(entity)"
             @click.stop="handleCellClick(entity.position.x, entity.position.y)"
           >
-            <!-- Type icon (no portrait) -->
-            <Icon v-if="!getPortraitId(entity)" :icon="getStyle(entity).icon"
-              class="opacity-70" :style="{ width: `${entitySize * 0.35}px`, height: `${entitySize * 0.35}px`, color: getStyle(entity).hpBarColor }" />
-            <!-- HP number on ALL entities -->
-            <span class="absolute font-ui font-bold"
-              :style="{
-                fontSize: `${Math.max(9, entitySize * 0.18)}px`,
-                textShadow: '0 1px 3px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,0.8)',
-                bottom: getPortraitId(entity) ? '1px' : 'auto',
-                top: getPortraitId(entity) ? 'auto' : `${entitySize * 0.6}px`,
-                color: getStyle(entity).hpBarColor,
-              }"
-            >{{ entity.hp }}</span>
+            <!-- Inner portrait / icon area (this div clips the image) -->
+            <div class="absolute inset-0 overflow-hidden flex items-center justify-center"
+              :style="{ borderRadius: isCharacterEntity(entity.type) ? '50%' : '6px' }">
+              <!-- Portrait background -->
+              <img v-if="getPortraitId(entity)"
+                :src="`${baseUrl}assets/characters/char_${getPortraitId(entity)}_normal.png`"
+                class="w-full h-full object-cover object-top"
+                alt=""
+                @error="($event.target as HTMLImageElement).style.display = 'none'" />
+              <!-- Type icon fallback (no portrait) -->
+              <Icon v-else :icon="getStyle(entity).icon"
+                class="opacity-70" :style="{ width: `${entitySize * 0.4}px`, height: `${entitySize * 0.4}px`, color: getStyle(entity).hpBarColor }" />
+            </div>
 
-            <!-- HP Bar below entity -->
-            <div class="absolute left-1/2 -translate-x-1/2 z-10"
-              :style="{ width: `${entitySize + 4}px`, bottom: `-${Math.max(5, entitySize * 0.08)}px` }">
+            <!-- Status badges (top-left corner, outside clipping) -->
+            <div v-if="entity.status && entity.status.length > 0 && entity.status[0] !== 'NORMAL'"
+              class="absolute z-20 flex gap-0.5 pointer-events-none"
+              :style="{ top: `-${Math.max(6, entitySize * 0.08)}px`, left: '0' }">
+              <div v-for="s in entity.status.filter((st: string) => st !== 'NORMAL').slice(0, 3)" :key="s"
+                class="rounded-sm font-ui font-black flex items-center justify-center"
+                :style="{ width: `${Math.max(16, entitySize * 0.22)}px`, height: `${Math.max(16, entitySize * 0.22)}px`, fontSize: `${Math.max(8, entitySize * 0.12)}px` }"
+                :class="{
+                  'bg-yellow-500 text-black': s === 'DAWN_LIGHT',
+                  'bg-amber-500 text-black': s === 'GUARDING',
+                  'bg-green-500 text-black': s === 'RALLIED',
+                  'bg-red-600 text-white': s === 'ENRAGED',
+                  'bg-blue-500 text-white': s === 'WET',
+                  'bg-orange-500 text-black': s === 'WEAKENED',
+                  'bg-slate-600 text-white': s === 'STUN' || s === 'ARMOR_BREAK',
+                }"
+              >{{ ({ DAWN_LIGHT: '☀', GUARDING: '🛡', RALLIED: '⬆', ENRAGED: '💢', WET: '💧', WEAKENED: '⬇', STUN: '✦', ARMOR_BREAK: '✦' } as Record<string, string>)[s] || '?' }}</div>
+            </div>
+
+            <!-- HP Bar (below entity, outside clipping) -->
+            <div class="absolute left-1/2 -translate-x-1/2 z-10 pointer-events-none"
+              :style="{ width: `${entitySize + 6}px`, bottom: `-${Math.max(8, entitySize * 0.1)}px` }">
               <div class="w-full rounded-sm overflow-hidden"
-                :style="{ height: `${Math.max(4, entitySize * 0.06)}px` }"
-                style="background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.1);">
+                :style="{ height: `${Math.max(6, entitySize * 0.08)}px` }"
+                style="background: rgba(0,0,0,0.9); border: 1px solid rgba(255,255,255,0.15);">
                 <div class="h-full transition-all duration-500 hp-bar-fill"
                   :class="{ 'hp-flash': gameStore.animHitIds.includes(entity.id) }"
                   :style="{ width: `${(entity.hp / entity.maxHp) * 100}%`, background: getHpGradient(entity) }">
                 </div>
+              </div>
+              <!-- HP text under bar -->
+              <div class="text-center font-ui font-bold pointer-events-none"
+                :style="{ fontSize: `${Math.max(8, entitySize * 0.12)}px`, color: getStyle(entity).hpBarColor, textShadow: '0 1px 2px rgba(0,0,0,1)' }">
+                {{ entity.hp }}/{{ entity.maxHp }}
+              </div>
+            </div>
+
+            <!-- "Can act" indicator ring for moved-but-not-acted players -->
+            <div v-if="entity.type === 'PLAYER' && entity.hasMoved && !entity.hasActed"
+              class="absolute inset-[-3px] rounded-full border-2 border-dashed border-sky-300/60 pointer-events-none z-0 animate-spin-slow">
+            </div>
+
+            <!-- Interactable indicator: floating "!" badge -->
+            <div v-if="entity.type === 'INTERACTABLE' && !gameStore.interactedTargets.includes(entity.id)"
+              class="absolute z-30 interact-badge"
+              :style="{ top: `-${Math.max(10, entitySize * 0.15)}px`, right: `-${Math.max(4, entitySize * 0.05)}px` }">
+              <div class="rounded-full bg-amber-500 flex items-center justify-center text-black font-ui font-black shadow-lg"
+                :style="{ width: `${Math.max(18, entitySize * 0.25)}px`, height: `${Math.max(18, entitySize * 0.25)}px`, fontSize: `${Math.max(10, entitySize * 0.15)}px`, boxShadow: '0 0 10px rgba(251,191,36,0.6), 0 0 20px rgba(251,191,36,0.3)' }">
+                !
+              </div>
+            </div>
+
+            <!-- Interactable hover tooltip -->
+            <div v-if="entity.type === 'INTERACTABLE' && !gameStore.interactedTargets.includes(entity.id)"
+              class="absolute left-1/2 -translate-x-1/2 z-30 interact-tooltip pointer-events-none"
+              :style="{ top: `-${Math.max(20, entitySize * 0.28)}px` }">
+              <div class="px-2 py-0.5 rounded font-ui font-bold bg-amber-600 text-black whitespace-nowrap shadow-lg"
+                :style="{ fontSize: `${Math.max(9, entitySize * 0.12)}px` }">
+                可調查
               </div>
             </div>
           </div>
@@ -829,6 +887,18 @@ const restartGame = () => { gameStore.restartBattle(); };
               </button>
             </div>
 
+            <!-- Skip Move Button (MOVING phase) -->
+            <div v-if="gameStore.unitActionPhase === 'MOVING' && selectedEntity && !selectedEntity.hasMoved" class="px-2 pb-2 border-t pt-2"
+              style="border-color: var(--color-border-panel);">
+              <button @click="handleSkipMove" class="w-full game-btn flex items-center gap-2.5 py-2 px-3 text-left">
+                <Icon :icon="ICONS.wait" class="w-4 h-4 flex-shrink-0" />
+                <div>
+                  <div class="font-ui text-sm font-bold">原地待命</div>
+                  <div class="font-ui text-[10px] opacity-60">跳過移動，直接行動</div>
+                </div>
+              </button>
+            </div>
+
             <!-- Action Buttons (ACTION_SELECT phase) -->
             <div v-if="gameStore.unitActionPhase === 'ACTION_SELECT'" class="px-2 pb-2 space-y-1.5 border-t pt-2"
               style="border-color: var(--color-border-panel);">
@@ -937,59 +1007,136 @@ const restartGame = () => { gameStore.restartBattle(); };
     <!-- ═══ Mission Briefing Modal ═══ -->
     <div v-if="gameStore.showMissionBriefing && gameStore.currentLevel?.missionBriefing"
       class="fixed inset-0 z-50 flex items-center justify-center p-6 animate-fade-in"
-      style="background: rgba(10,14,26,0.88); backdrop-filter: blur(8px);">
-      <div class="game-panel game-panel-accent max-w-lg w-full p-0 overflow-hidden">
+      style="background: rgba(10,14,26,0.88); backdrop-filter: blur(8px);"
+      @click.self="gameStore.dismissMissionBriefing()">
+      <div class="game-panel game-panel-accent max-w-2xl w-full p-0 overflow-hidden">
         <!-- Header -->
-        <div class="px-6 py-4 border-b flex items-center gap-3"
-          style="border-color: var(--color-border-panel); background: rgba(0,0,0,0.3);">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center"
-            style="background: var(--color-player-bg); border: 1px solid var(--color-player);">
-            <Icon :icon="ICONS.briefing" class="w-6 h-6" style="color: var(--color-player);" />
+        <div class="px-8 py-5 border-b flex items-center gap-4"
+          style="border-color: var(--color-border-panel); background: rgba(0,0,0,0.4);">
+          <div class="w-14 h-14 rounded-xl flex items-center justify-center"
+            style="background: var(--color-player-bg); border: 2px solid var(--color-player);">
+            <Icon :icon="ICONS.briefing" class="w-8 h-8" style="color: var(--color-player);" />
           </div>
           <div>
-            <h3 class="font-ui text-xl font-bold text-sky-400">作戰簡報</h3>
-            <p class="font-ui text-[10px] text-slate-500 font-bold tracking-widest uppercase">MISSION BRIEFING &mdash; {{ gameStore.currentLevel.title }}</p>
+            <h3 class="font-ui text-2xl font-black text-sky-400 tracking-tight">作戰簡報</h3>
+            <p class="font-ui text-xs text-slate-500 font-bold tracking-widest uppercase mt-0.5">MISSION BRIEFING &mdash; {{ gameStore.currentLevel.title }}</p>
           </div>
         </div>
 
-        <div class="p-6 space-y-4">
-          <!-- Objective -->
-          <div class="rounded-lg p-4" style="background: rgba(14,116,144,0.15); border: 1px solid rgba(56,189,248,0.2);">
-            <div class="flex items-center gap-2 mb-2">
-              <Icon :icon="ICONS.objective" class="w-4 h-4 text-sky-400" />
-              <span class="font-ui text-[11px] font-bold text-sky-400 tracking-widest">主要目標</span>
+        <div class="p-8 space-y-5">
+          <!-- Objective — large and prominent -->
+          <div class="rounded-xl p-5" style="background: rgba(14,116,144,0.15); border: 2px solid rgba(56,189,248,0.3);">
+            <div class="flex items-center gap-2 mb-3">
+              <Icon :icon="ICONS.objective" class="w-5 h-5 text-sky-400" />
+              <span class="font-ui text-xs font-black text-sky-400 tracking-widest uppercase">主要目標</span>
             </div>
-            <div class="text-white font-semibold text-base">{{ gameStore.currentLevel.missionBriefing.objective }}</div>
+            <div class="text-white font-bold text-xl leading-relaxed">{{ gameStore.currentLevel.missionBriefing.objective }}</div>
+          </div>
+
+          <!-- Two-column: Win/Lose conditions + Enemy info -->
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Win conditions (derived from level config) -->
+            <div class="rounded-lg p-4" style="background: rgba(14,116,144,0.1); border: 1px solid rgba(56,189,248,0.15);">
+              <div class="flex items-center gap-2 mb-3">
+                <Icon :icon="ICONS.defeatAll" class="w-4 h-4 text-emerald-400" />
+                <span class="font-ui text-[11px] font-bold text-emerald-400 tracking-widest uppercase">勝利條件</span>
+              </div>
+              <ul class="space-y-1.5 text-sm text-slate-300">
+                <li v-if="gameStore.currentLevel.winCondition.defeatAll" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.defeatAll" class="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                  殲滅所有敵人
+                </li>
+                <li v-if="gameStore.currentLevel.winCondition.defeatBoss" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.defeatBoss" class="w-3.5 h-3.5 text-fuchsia-400 flex-shrink-0" />
+                  擊敗首領
+                </li>
+                <li v-if="gameStore.currentLevel.winCondition.surviveTurns" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.defend" class="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                  撐過 {{ gameStore.currentLevel.winCondition.surviveTurns }} 回合
+                </li>
+                <li v-if="gameStore.currentLevel.winCondition.escortCount" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.escort" class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  護送 {{ gameStore.currentLevel.winCondition.escortCount }} 名學生撤離
+                </li>
+                <li v-if="gameStore.currentLevel.winCondition.interactTargets?.length" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.evidence" class="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  調查 {{ gameStore.currentLevel.winCondition.interactTargets.length }} 個目標
+                </li>
+              </ul>
+            </div>
+
+            <!-- Fail conditions -->
+            <div class="rounded-lg p-4" style="background: rgba(127,29,29,0.15); border: 1px solid rgba(239,68,68,0.2);">
+              <div class="flex items-center gap-2 mb-3">
+                <Icon :icon="ICONS.fail" class="w-4 h-4 text-red-400" />
+                <span class="font-ui text-[11px] font-bold text-red-400 tracking-widest uppercase">失敗條件</span>
+              </div>
+              <ul class="space-y-1.5 text-sm text-red-300">
+                <li class="flex items-center gap-2">
+                  <Icon :icon="ICONS.fail" class="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                  全員陣亡
+                </li>
+                <li v-if="gameStore.currentLevel.loseCondition?.requiredAlive" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.fail" class="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                  關鍵角色倒下
+                </li>
+                <li v-if="gameStore.currentLevel.loseCondition?.breachLine" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.fail" class="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                  防線被突破 {{ gameStore.currentLevel.loseCondition.breachLine.maxBreaches }} 次
+                </li>
+                <li v-if="gameStore.currentLevel.loseCondition?.turnLimit" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.timer" class="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                  超過 {{ gameStore.currentLevel.loseCondition.turnLimit }} 回合
+                </li>
+                <li v-if="gameStore.currentLevel.missionBriefing.failCondition" class="flex items-center gap-2">
+                  <Icon :icon="ICONS.fail" class="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                  {{ gameStore.currentLevel.missionBriefing.failCondition }}
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Enemy summary -->
+          <div class="rounded-lg p-4" style="background: rgba(30,20,40,0.4); border: 1px solid rgba(239,68,68,0.15);">
+            <div class="flex items-center gap-2 mb-3">
+              <Icon :icon="ICONS.ENEMY" class="w-4 h-4 text-red-400" />
+              <span class="font-ui text-[11px] font-bold text-red-400 tracking-widest uppercase">敵方情報</span>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <div v-for="group in briefingEnemyGroups" :key="group.name"
+                class="flex items-center gap-2 rounded-md px-3 py-2"
+                style="background: rgba(127,29,29,0.2); border: 1px solid rgba(239,68,68,0.15);">
+                <Icon :icon="group.isBoss ? ICONS.BOSS : ICONS.ENEMY" class="w-4 h-4"
+                  :class="group.isBoss ? 'text-fuchsia-400' : 'text-red-400'" />
+                <span class="font-ui text-sm text-slate-300 font-bold">{{ group.name }}</span>
+                <span class="font-ui text-xs text-slate-500">&times;{{ group.count }}</span>
+                <span class="font-ui text-xs text-red-400">HP {{ group.hp }}</span>
+                <span v-if="group.atk" class="font-ui text-xs text-orange-400">ATK {{ group.atk }}</span>
+              </div>
+            </div>
           </div>
 
           <!-- Tips -->
           <div>
-            <div class="flex items-center gap-2 mb-2">
-              <Icon :icon="ICONS.tips" class="w-4 h-4 text-slate-400" />
-              <span class="font-ui text-[11px] font-bold text-slate-500 tracking-widest">操作提示</span>
+            <div class="flex items-center gap-2 mb-3">
+              <Icon :icon="ICONS.tips" class="w-4 h-4 text-amber-400" />
+              <span class="font-ui text-[11px] font-bold text-amber-400 tracking-widest uppercase">作戰提示</span>
             </div>
-            <div v-for="(tip, i) in gameStore.currentLevel.missionBriefing.tips" :key="i"
-              class="text-sm text-slate-300 pl-3 border-l-2 leading-relaxed mb-1.5"
-              style="border-color: var(--color-border-panel);">
-              {{ tip }}
+            <div class="space-y-2">
+              <div v-for="(tip, i) in gameStore.currentLevel.missionBriefing.tips" :key="i"
+                class="flex items-start gap-2 text-sm text-slate-300 leading-relaxed">
+                <Icon :icon="ICONS.tips" class="w-3.5 h-3.5 text-amber-500/60 flex-shrink-0 mt-0.5" />
+                {{ tip }}
+              </div>
             </div>
-          </div>
-
-          <!-- Fail Condition -->
-          <div v-if="gameStore.currentLevel.missionBriefing.failCondition"
-            class="rounded-lg p-3" style="background: rgba(127,29,29,0.2); border: 1px solid rgba(239,68,68,0.2);">
-            <div class="flex items-center gap-2 mb-1">
-              <Icon :icon="ICONS.fail" class="w-4 h-4 text-red-400" />
-              <span class="font-ui text-[11px] font-bold text-red-400 tracking-widest">失敗條件</span>
-            </div>
-            <div class="text-sm text-red-300">{{ gameStore.currentLevel.missionBriefing.failCondition }}</div>
           </div>
         </div>
 
         <!-- CTA -->
-        <div class="px-6 pb-6">
+        <div class="px-8 pb-8 flex gap-3">
           <button @click="gameStore.dismissMissionBriefing()"
-            class="w-full game-btn-primary font-ui text-lg py-4 rounded-lg tracking-wide">
+            class="flex-1 game-btn-primary font-ui text-lg py-4 rounded-lg tracking-wide font-bold flex items-center justify-center gap-2">
+            <Icon :icon="ICONS.defeatAll" class="w-5 h-5" />
             開始作戰
           </button>
         </div>
@@ -1011,7 +1158,7 @@ const restartGame = () => { gameStore.restartBattle(); };
     </div>
 
     <!-- ═══ BGM Audio Element ═══ -->
-    <audio ref="bgmAudio" loop></audio>
+    <!-- BGM audio is managed globally in App.vue -->
   </div>
 </template>
 
@@ -1187,14 +1334,23 @@ const restartGame = () => { gameStore.restartBattle(); };
   100% { filter: brightness(1); }
 }
 
+/* ═══ Entity unit base ═══ */
+.entity-unit { overflow: visible; }
+.entity-exhausted { filter: grayscale(0.8); opacity: 0.4; }
+
 /* ═══ Selected unit glow ═══ */
 .selected-pulse {
   animation: selectedGlow 1.2s ease-in-out infinite;
+  transform: scale(1.06);
 }
 @keyframes selectedGlow {
-  0%, 100% { box-shadow: 0 0 12px rgba(56, 189, 248, 0.3); }
-  50% { box-shadow: 0 0 24px rgba(56, 189, 248, 0.7), 0 0 48px rgba(56, 189, 248, 0.2); }
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.2); }
 }
+
+/* ═══ Spin slow for "can act" ring ═══ */
+.animate-spin-slow { animation: spin 6s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ═══ End turn pulse ═══ */
 .end-turn-pulse {
@@ -1253,74 +1409,142 @@ const restartGame = () => { gameStore.restartBattle(); };
   100% { transform: translateY(-70px) translateX(var(--spread-x, 0)) scale(0.7); opacity: 0; }
 }
 
-/* ═══ Skill Cast Effects ═══ */
+/* ═══ Skill Cast Effects (Enhanced) ═══ */
+
+/* --- Slash: diagonal light streak with afterimage --- */
 .skill-fx-slash {
   animation: fxSlash 0.5s ease-out both;
-  background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.6) 48%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.6) 52%, transparent 70%);
+  background:
+    linear-gradient(135deg, transparent 25%, rgba(255,255,255,0.15) 40%, rgba(255,255,255,0.85) 49%, rgba(200,230,255,1) 50%, rgba(255,255,255,0.85) 51%, rgba(255,255,255,0.15) 60%, transparent 75%),
+    linear-gradient(135deg, transparent 35%, rgba(56,189,248,0.3) 48%, rgba(56,189,248,0.5) 50%, rgba(56,189,248,0.3) 52%, transparent 65%);
   border-radius: 4px;
+  filter: blur(0.5px);
 }
-.skill-fx-heavy {
-  animation: fxHeavy 0.6s ease-out both;
-  background: radial-gradient(circle, rgba(250,204,21,0.5) 0%, rgba(239,68,68,0.3) 40%, transparent 70%);
+.skill-fx-slash::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.4) 48%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.4) 52%, transparent 70%);
+  animation: fxSlashAfter 0.5s 0.05s ease-out both;
   border-radius: 4px;
-  box-shadow: inset 0 0 20px rgba(250,204,21,0.4);
-}
-.skill-fx-heal {
-  animation: fxHeal 0.6s ease-out both;
-  background: radial-gradient(circle, rgba(34,197,94,0.4) 0%, rgba(34,197,94,0.1) 50%, transparent 70%);
-  border-radius: 50%;
-  box-shadow: inset 0 0 15px rgba(34,197,94,0.3);
-}
-.skill-fx-buff {
-  animation: fxBuff 0.6s ease-out both;
-  background: radial-gradient(circle, rgba(56,189,248,0.35) 0%, rgba(56,189,248,0.1) 50%, transparent 70%);
-  border-radius: 50%;
-  box-shadow: inset 0 0 15px rgba(56,189,248,0.3);
-}
-.skill-fx-debuff {
-  animation: fxDebuff 0.5s ease-out both;
-  background: radial-gradient(circle, rgba(168,85,247,0.5) 0%, rgba(168,85,247,0.15) 50%, transparent 70%);
-  border-radius: 4px;
-  box-shadow: inset 0 0 15px rgba(168,85,247,0.3);
-}
-.skill-fx-aoe {
-  animation: fxAoe 0.6s ease-out both;
-  background: radial-gradient(circle, rgba(249,115,22,0.4) 0%, rgba(249,115,22,0.15) 40%, transparent 70%);
-  border-radius: 4px;
-  box-shadow: inset 0 0 20px rgba(249,115,22,0.3);
 }
 
+/* --- Heavy: gold-red impact with shockwave ring --- */
+.skill-fx-heavy {
+  animation: fxHeavy 0.6s ease-out both;
+  background: radial-gradient(circle, rgba(255,220,50,0.7) 0%, rgba(250,204,21,0.5) 15%, rgba(239,68,68,0.35) 40%, transparent 65%);
+  border-radius: 4px;
+  box-shadow: inset 0 0 25px rgba(250,204,21,0.5);
+}
+.skill-fx-heavy::after {
+  content: ''; position: absolute; inset: -10%;
+  border: 3px solid rgba(250,204,21,0.6);
+  border-radius: 50%;
+  animation: fxHeavyRing 0.6s ease-out both;
+}
+
+/* --- Heal: green particles rising upward --- */
+.skill-fx-heal {
+  animation: fxHeal 0.6s ease-out both;
+  background: radial-gradient(circle, rgba(34,197,94,0.5) 0%, rgba(34,197,94,0.15) 40%, transparent 70%);
+  border-radius: 50%;
+  box-shadow: inset 0 0 20px rgba(34,197,94,0.4), 0 0 15px rgba(34,197,94,0.3);
+}
+.skill-fx-heal::before, .skill-fx-heal::after {
+  content: '✦'; position: absolute; font-size: 14px; color: rgba(34,197,94,0.8);
+  text-shadow: 0 0 6px rgba(34,197,94,0.5);
+}
+.skill-fx-heal::before { left: 20%; animation: fxHealParticle 0.8s ease-out both; }
+.skill-fx-heal::after { left: 65%; animation: fxHealParticle 0.8s 0.15s ease-out both; }
+
+/* --- Buff: sky-blue ascending ring --- */
+.skill-fx-buff {
+  animation: fxBuff 0.6s ease-out both;
+  background: radial-gradient(circle, rgba(56,189,248,0.45) 0%, rgba(56,189,248,0.1) 45%, transparent 70%);
+  border-radius: 50%;
+  box-shadow: inset 0 0 20px rgba(56,189,248,0.4), 0 0 12px rgba(56,189,248,0.25);
+}
+.skill-fx-buff::after {
+  content: ''; position: absolute; inset: 5%;
+  border: 2px solid rgba(56,189,248,0.5);
+  border-radius: 50%;
+  animation: fxBuffRing 0.6s ease-out both;
+}
+
+/* --- Debuff: purple vortex contracting --- */
+.skill-fx-debuff {
+  animation: fxDebuff 0.5s ease-out both;
+  background:
+    radial-gradient(circle, rgba(168,85,247,0.6) 0%, rgba(168,85,247,0.2) 40%, transparent 65%),
+    conic-gradient(from 0deg, rgba(168,85,247,0.3) 0%, transparent 25%, rgba(168,85,247,0.3) 50%, transparent 75%, rgba(168,85,247,0.3) 100%);
+  border-radius: 4px;
+  box-shadow: inset 0 0 20px rgba(168,85,247,0.4);
+}
+
+/* --- AoE: expanding orange shockwave --- */
+.skill-fx-aoe {
+  animation: fxAoe 0.6s ease-out both;
+  background: radial-gradient(circle, rgba(249,115,22,0.55) 0%, rgba(249,115,22,0.2) 35%, transparent 65%);
+  border-radius: 4px;
+  box-shadow: inset 0 0 25px rgba(249,115,22,0.4);
+}
+.skill-fx-aoe::after {
+  content: ''; position: absolute; inset: -5%;
+  border: 2px solid rgba(249,115,22,0.5);
+  border-radius: 50%;
+  animation: fxHeavyRing 0.5s ease-out both;
+}
+
+/* --- Keyframes --- */
 @keyframes fxSlash {
-  0% { opacity: 0; transform: scale(0.5) rotate(-30deg); }
-  30% { opacity: 1; transform: scale(1.2) rotate(0deg); }
-  100% { opacity: 0; transform: scale(1.5) rotate(15deg); }
+  0% { opacity: 0; transform: scale(0.4) rotate(-45deg); }
+  25% { opacity: 1; transform: scale(1.15) rotate(-5deg); }
+  100% { opacity: 0; transform: scale(1.4) rotate(10deg); }
+}
+@keyframes fxSlashAfter {
+  0% { opacity: 0; transform: scale(0.6) rotate(-40deg) translate(5%, 5%); }
+  30% { opacity: 0.7; transform: scale(1.1) rotate(-3deg); }
+  100% { opacity: 0; transform: scale(1.3) rotate(8deg); }
 }
 @keyframes fxHeavy {
+  0% { opacity: 0; transform: scale(0.2); }
+  15% { opacity: 1; transform: scale(1.35); }
+  40% { opacity: 0.9; transform: scale(0.95); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+@keyframes fxHeavyRing {
   0% { opacity: 0; transform: scale(0.3); }
-  20% { opacity: 1; transform: scale(1.4); }
-  50% { opacity: 0.8; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.8); }
+  20% { opacity: 1; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(1.8); border-width: 1px; }
 }
 @keyframes fxHeal {
-  0% { opacity: 0; transform: scale(0.5); }
-  30% { opacity: 1; transform: scale(1.1); }
-  100% { opacity: 0; transform: scale(1.6); }
+  0% { opacity: 0; transform: scale(0.4); }
+  25% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+@keyframes fxHealParticle {
+  0% { opacity: 0; transform: translateY(80%) scale(0.5); }
+  30% { opacity: 1; transform: translateY(30%) scale(1); }
+  100% { opacity: 0; transform: translateY(-40%) scale(0.3); }
 }
 @keyframes fxBuff {
   0% { opacity: 0; transform: scale(0.3); }
-  25% { opacity: 1; transform: scale(1.2); }
-  100% { opacity: 0; transform: scale(1.5); }
+  20% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+@keyframes fxBuffRing {
+  0% { opacity: 0; transform: scale(0.5) translateY(30%); }
+  30% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(1.2) translateY(-40%); }
 }
 @keyframes fxDebuff {
-  0% { opacity: 0; transform: scale(1.3); }
-  30% { opacity: 1; transform: scale(1); }
-  60% { opacity: 0.8; transform: scale(1.1); }
-  100% { opacity: 0; transform: scale(0.8); }
+  0% { opacity: 0; transform: scale(1.4) rotate(0deg); }
+  25% { opacity: 1; transform: scale(1) rotate(90deg); }
+  50% { opacity: 0.8; transform: scale(1.05) rotate(180deg); }
+  100% { opacity: 0; transform: scale(0.7) rotate(360deg); }
 }
 @keyframes fxAoe {
-  0% { opacity: 0; transform: scale(0.2); }
-  25% { opacity: 1; transform: scale(1.3); }
-  100% { opacity: 0; transform: scale(1.6); }
+  0% { opacity: 0; transform: scale(0.15); }
+  20% { opacity: 1; transform: scale(1.25); }
+  100% { opacity: 0; transform: scale(1.5); }
 }
 
 /* ═══ Kill Reward Effects ═══ */
@@ -1412,9 +1636,16 @@ const restartGame = () => { gameStore.restartBattle(); };
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes interactPulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(251, 191, 36, 0.2); }
-  50% { transform: scale(1.04); box-shadow: 0 0 16px rgba(251, 191, 36, 0.5); }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 12px rgba(251, 191, 36, 0.3), 0 0 24px rgba(251, 191, 36, 0.15); }
+  50% { transform: scale(1.06); box-shadow: 0 0 20px rgba(251, 191, 36, 0.6), 0 0 36px rgba(251, 191, 36, 0.3); }
 }
+.interact-badge { animation: badgeBounce 1.5s ease-in-out infinite; }
+@keyframes badgeBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.interact-tooltip { opacity: 0; transition: opacity 0.2s; }
+div:hover > .interact-tooltip { opacity: 1; }
 @keyframes lunge {
   0% { transform: translate(0, 0); }
   35% { transform: translate(var(--lunge-x, 0), var(--lunge-y, 0)); }

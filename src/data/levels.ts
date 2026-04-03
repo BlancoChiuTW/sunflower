@@ -12,7 +12,7 @@ const getChar = (key: string, id: string, x: number, y: number): EntityConfig =>
     maxHp: t.maxHp,
     type: t.type,
     attack: t.attack,
-    skills: t.skills,
+    skills: t.skills.map(s => ({ ...s })),
   };
 };
 

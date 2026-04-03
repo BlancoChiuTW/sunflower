@@ -1,8 +1,30 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useGameStore } from '@/stores/gameStore';
 
 const gameStore = useGameStore();
+
+// ── Dialogue effects ──
+const activeEffect = ref<string | null>(null);
+
+const applyEffect = (effect: string | undefined) => {
+  if (!effect) return;
+  activeEffect.value = effect;
+  // Auto-clear effect after animation
+  const duration = effect === 'fade_out' ? 1500 : 600;
+  setTimeout(() => { activeEffect.value = null; }, duration);
+};
+
+// Watch for effect changes on each dialogue line
+watch(() => gameStore.currentDialogueIndex, () => {
+  const line = gameStore.activeDialogues[gameStore.currentDialogueIndex];
+  applyEffect(line?.effect);
+});
+watch(() => gameStore.currentDialogueId, () => {
+  if (gameStore.currentDialogueId && gameStore.activeDialogues.length > 0) {
+    applyEffect(gameStore.activeDialogues[0]?.effect);
+  }
+});
 
 const currentLine = computed(() => {
   return gameStore.activeDialogues[gameStore.currentDialogueIndex];
@@ -64,12 +86,23 @@ const portraitUrl = computed(() => {
 });
 
 // ── SFX playback ──
-watch(() => gameStore.currentDialogueIndex, () => {
-  const line = gameStore.activeDialogues[gameStore.currentDialogueIndex];
+const playSfxForLine = (line: { sfx?: string } | undefined) => {
   if (line?.sfx) {
     const audio = new Audio(`${import.meta.env.BASE_URL}assets/se/se_${line.sfx}.mp3`);
     audio.volume = 0.6;
     audio.play().catch(() => {});
+  }
+};
+// Watch dialogue ID change to catch the first line (index resets to 0)
+watch(() => gameStore.currentDialogueId, () => {
+  if (gameStore.currentDialogueId && gameStore.activeDialogues.length > 0) {
+    playSfxForLine(gameStore.activeDialogues[0]);
+  }
+});
+// Watch index change for subsequent lines
+watch(() => gameStore.currentDialogueIndex, () => {
+  if (gameStore.currentDialogueIndex > 0) {
+    playSfxForLine(gameStore.activeDialogues[gameStore.currentDialogueIndex]);
   }
 });
 
@@ -85,7 +118,12 @@ const handleNext = () => {
     @click="handleNext"
   >
     <!-- Scene Background -->
-    <div class="absolute inset-0 bg-black">
+    <div class="absolute inset-0 bg-black"
+      :class="{
+        'effect-shake': activeEffect === 'shake',
+        'effect-light-flicker': activeEffect === 'light_flicker',
+        'effect-fade-out': activeEffect === 'fade_out',
+      }">
       <img
         v-if="backgroundUrl"
         :src="backgroundUrl"
@@ -199,5 +237,47 @@ const handleNext = () => {
 .cg-fade-enter-from,
 .cg-fade-leave-to {
   opacity: 0;
+}
+
+/* ── Dialogue scene effects ── */
+.effect-shake {
+  animation: dialogueShake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+@keyframes dialogueShake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-8px, -4px); }
+  20% { transform: translate(6px, 6px); }
+  30% { transform: translate(-6px, 2px); }
+  40% { transform: translate(4px, -6px); }
+  50% { transform: translate(-4px, 4px); }
+  60% { transform: translate(6px, -2px); }
+  70% { transform: translate(-2px, 6px); }
+  80% { transform: translate(4px, -4px); }
+  90% { transform: translate(-4px, 2px); }
+}
+
+.effect-light-flicker {
+  animation: lightFlicker 0.6s steps(1) both;
+}
+@keyframes lightFlicker {
+  0% { filter: brightness(1); }
+  10% { filter: brightness(0.3); }
+  20% { filter: brightness(0.9); }
+  30% { filter: brightness(0.2); }
+  40% { filter: brightness(1.1); }
+  50% { filter: brightness(0.4); }
+  60% { filter: brightness(1); }
+  70% { filter: brightness(0.3); }
+  80% { filter: brightness(0.8); }
+  90% { filter: brightness(0.5); }
+  100% { filter: brightness(1); }
+}
+
+.effect-fade-out {
+  animation: dialogueFadeOut 1.5s ease-in both;
+}
+@keyframes dialogueFadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 </style>

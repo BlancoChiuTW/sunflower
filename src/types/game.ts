@@ -42,6 +42,7 @@ export interface Entity {
   hp: number;
   maxHp: number;
   type: EntityType;
+  hasMoved?: boolean;
   hasActed?: boolean;
   skills?: Skill[];
   attack?: number;
