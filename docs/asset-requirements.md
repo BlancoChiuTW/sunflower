@@ -1,8 +1,8 @@
 # Sunflower Protocol — Demo 完整資產需求清單
 
-> 版本: v3.0 | 對應劇本: `dialogues.ts` 覆寫版 (Ch1-5 + H-scene)
+> 版本: v4.0 | 對應劇本: `dialogues.ts` 覆寫版 (Ch1-5 + H-scene)
 > 用途: 發包美術 / 音效製作依據
-> 最後掃描日期: 2026-04-01
+> 最後掃描日期: 2026-04-03
 
 ---
 
@@ -198,7 +198,8 @@ public/assets/
 | 背景音樂 | `bgm_`  | `bgm_{曲目ID}.ogg`         | `bgm_battle_boss.ogg`         |
 | 音效     | `se_`   | `se_{音效ID}.ogg`          | `se_door_kick.ogg`            |
 
-> 音訊格式統一使用 **OGG Vorbis**（瀏覽器相容性最佳，檔案體積小）。
+> ⚠️ **音訊格式注意**：需求清單命名為 `.ogg`，但程式碼實際載入路徑為 `.mp3`。
+> 發行前需統一：建議素材提供 MP3 格式（Electron 相容性佳），或修改程式碼副檔名。
 > 立繪與 CG 使用 **PNG**（支援透明通道）。背景可用 **JPG**（無透明需求，檔案較小）。
 
 ---
@@ -317,10 +318,13 @@ public/assets/
 
 | 類別 | 路徑模式 | 引用位置 | 載入方式 |
 |------|---------|---------|---------|
-| 背景圖 | `/assets/backgrounds/${bg}.png` | `App.vue:14`, `DialogueBox.vue:13` | `<img :src>` 動態綁定 |
-| 事件 CG | `/assets/cg/${cg}.png` | `DialogueBox.vue:18` | `<img :src>` 動態綁定 |
-| 角色頭像 | `/assets/characters/char_${id}_normal.png` | `BattleGrid.vue:507,684` | CSS `background-image` |
-| 背景音樂 | `/assets/bgm/${bgm}.ogg` | `BattleGrid.vue:87` | `<audio>` 元素 |
+| 背景圖 | `/assets/backgrounds/${bg}.png` | `App.vue:14`, `DialogueBox.vue:34` | `<img :src>` 動態綁定 |
+| 事件 CG | `/assets/cg/${cg}.png` | `DialogueBox.vue:39` | `<img :src>` 動態綁定 |
+| 對話立繪 | `/assets/characters/char_${id}.png` | `DialogueBox.vue:85` | `<img :src>` 動態綁定（透過 PORTRAIT_MAP 映射） |
+| 戰棋頭像 | `/assets/characters/char_${id}_normal.png` | `BattleGrid.vue:533,705` | CSS `background-image` + `<img :src>` |
+| 背景音樂 | `/assets/bgm/${bgm}.mp3` | `App.vue:85` | `<audio>` 元素（全域 BGM 系統） |
+| 對話音效 | `/assets/se/se_${sfxId}.mp3` | `DialogueBox.vue:91` | `new Audio()` 動態播放 |
+| 戰鬥音效 | `/assets/se/${id}.mp3` | `gameStore.ts:961` | `new Audio()` 透過 `playSfx()` |
 | 網站圖示 | `/favicon.ico` | `index.html:5` | `<link rel="icon">` |
 
 ### 6-B. 程式碼引用但尚未實作載入的素材
@@ -333,18 +337,20 @@ public/assets/
 
 ### 6-C. 戰棋頭像引用——實際需要的檔案
 
-程式碼中 `getPortraitId()` 只產生 `_normal` 後綴，實際需要的檔案為：
+程式碼中 `getPortraitId()` 將實體 ID 映射為角色前綴，再加上 `_normal` 後綴：
 
 | 檔案名稱 | 對應實體 ID | 引用位置 |
 |---------|-----------|---------|
-| `char_a_dian_normal.png` | `player-adian` | `BattleGrid.vue:225` |
-| `char_ya_qing_normal.png` | `player-yaqing` | `BattleGrid.vue:226` |
-| `char_nai_rong_normal.png` | `player-nairong` | `BattleGrid.vue:227` |
-| `char_xuan_xuan_normal.png` | `player-xuanxuan`, `npc-xuanxuan` | `BattleGrid.vue:228-229` |
+| `char_a_dian_normal.png` | `player-adian` | `BattleGrid.vue:207` |
+| `char_ya_qing_normal.png` | `player-yaqing` | `BattleGrid.vue:208` |
+| `char_nai_rong_normal.png` | `player-nairong` | `BattleGrid.vue:209` |
+| `char_xuan_xuan_normal.png` | `player-xuanxuan`, `npc-xuanxuan` | `BattleGrid.vue:210-211` |
 
-> **注意**：此處與第 1 節的立繪清單使用不同命名慣例。
-> 第 1 節使用 `char_adian_calm.png`（無底線分隔名字），而程式碼中用 `char_a_dian_normal.png`（底線分隔）。
-> 發包時需統一命名，或修改 `getPortraitId()` 映射。
+> **注意**：戰棋頭像與對話立繪使用不同的命名慣例。
+> - 戰棋頭像：`char_a_dian_normal.png`（底線分隔 + `_normal` 後綴）
+> - 對話立繪：`char_a_dian_calm.png`（底線分隔 + 表情後綴，透過 `DialogueBox.vue` PORTRAIT_MAP 映射）
+> - 第 1 節需求清單：`char_adian_calm.png`（無底線分隔名字）
+> 發包時需統一命名慣例，建議以程式碼中的 `a_dian` 格式為準。
 
 ### 6-D. 背景圖——程式碼實際引用的完整清單
 
@@ -376,7 +382,7 @@ public/assets/
 | `bgm_intimate` | `dialogues.ts:712,869,1026` | ✅ |
 | `bgm_victory` | `gameStore.ts:474` | ✅ |
 | `bgm_defeat` | `gameStore.ts:481` | ✅ |
-| `bgm_menu` | — | ⚠️ 列於需求但程式碼未引用 |
+| `bgm_menu` | `App.vue:69,103` | ✅ |
 
 ### 6-F. SFX——對話 SFX 播放狀態
 
@@ -440,11 +446,12 @@ public/assets/
 | 5 | **主選單 BGM** | ✅ `App.vue` 全域 BGM 系統，自動播放 `bgm_menu`，場景切換含淡入淡出 |
 | 6 | **技能施放特效增強** | ✅ 6 種技能 CSS 特效全部升級（多層效果、偽元素粒子、衝擊波環） |
 
-### 🟡 中優先（命名不一致）
+### 🟡 中優先（命名不一致 & 格式不一致）
 
 | # | 項目 | 說明 | 建議 |
 |---|------|------|------|
-| 1 | **角色 ID 命名不一致** | 需求清單用 `char_adian`，程式碼用 `char_a_dian`（底線分隔） | 統一為其中一種，建議修改 `getPortraitId()` 映射 |
+| 1 | **角色 ID 命名不一致** | 需求清單用 `char_adian`，程式碼用 `char_a_dian`（底線分隔） | 統一為底線分隔格式（`a_dian`），同步修改需求清單第 1 節 |
+| 2 | **音訊副檔名不一致** | 需求清單命名 `.ogg`，程式碼載入 `.mp3` | 統一為 MP3（Electron 相容性佳），或批次修改程式碼路徑 |
 
 ### 🟢 低優先（規劃項目）
 
@@ -452,3 +459,4 @@ public/assets/
 |---|------|------|------|
 | 1 | **背景圖變體未使用** | damaged/戰鬥後變體列於需求但無切換邏輯 | 可暫不製作，待劇情系統支援場景切換時再加 |
 | 2 | **Google Fonts 離線化** | 目前依賴 CDN，Steam 離線環境可能無法載入 | 發行前需下載 woff2 檔案並改為本地載入 |
+| 3 | **教學系統圖示** | `TutorialOverlay.vue` 使用 Iconify 圖示，無額外素材需求 | 若需自訂圖示風格，可替換為本地 SVG |
